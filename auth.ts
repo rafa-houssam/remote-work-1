@@ -51,10 +51,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       
       },
 }),
-GitHub
+
   ],
 
   pages: {
-    signIn: "/dashboard/login",
+    signIn: "/login",
   },
 })
