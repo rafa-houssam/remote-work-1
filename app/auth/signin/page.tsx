@@ -13,7 +13,6 @@ import { signIn, useSession } from "next-auth/react";
 
 export default function SignInPage() {
   const [userType, setUserType] = useState("");
-  const [companyId, setCompanyId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -58,7 +57,6 @@ export default function SignInPage() {
       redirect: false,
       email,
       password,
-      companyId,
       userType,
     });
 
@@ -102,16 +100,7 @@ export default function SignInPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <form onSubmit={handleLogin} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="companyId">معرف الشركة</Label>
-                  <Input
-                    id="companyId"
-                    placeholder="أدخل معرف الشركة"
-                    value={companyId}
-                    onChange={(e) => setCompanyId(e.target.value)}
-                    className="text-right"
-                  />
-                </div>
+                
 
                 <div className="space-y-2">
                   <Label htmlFor="userType">نوع الحساب</Label>
@@ -177,7 +166,7 @@ export default function SignInPage() {
                 <Button
                   type="submit"
                   className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  disabled={!userType || !email || !password || !companyId || isLoading}
+                  disabled={!userType || !email || !password || isLoading}
                 >
                   {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
                   {!isLoading && <ArrowRight className="mr-2 h-4 w-4" />}
