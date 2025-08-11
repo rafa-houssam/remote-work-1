@@ -35,10 +35,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             const isPasswordCorrect = await bcrypt.compare(
                 credentials.password as string,
                 user.password as string
+                
             );
 
             if (isPasswordCorrect) {
-              return user;
+               return {
+          id: user._id.toString(), // 👈 store it as "id"
+          name: user.name,
+          email: user.email,
+          image: user.image || null,
+        };
             } else {
               throw new Error("Wrong Credentials!");
             }

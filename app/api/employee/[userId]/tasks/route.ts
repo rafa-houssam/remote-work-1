@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import connect from "@/utils/db";
-import Task from "@/models/Task";
+import Task from "@/models/Tasks";
 
 export const GET = async (req: Request, { params }: { params: { userId: string } }) => {
   try {

@@ -1,10 +1,11 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,8 +13,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { CheckSquare, FileText, Activity, User, Settings, LogOut, Menu, X } from 'lucide-react'
+} from "@/components/ui/dropdown-menu";
+import {
+  CheckSquare,
+  FileText,
+  Activity,
+  User,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,35 +33,45 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 
 interface EmployeeLayoutProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const router = useRouter()
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
   const handleLogout = () => {
-    // Clear any stored auth data
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
-    router.push("/")
-  }
+    signOut({ callbackUrl: "/" });
+  };
 
   const navigation = [
     { name: "مهامي", href: "/employee/dashboard", icon: CheckSquare, current: true },
     { name: "الملفات", href: "/employee/files", icon: FileText, current: false },
     { name: "النشاط", href: "/employee/activity", icon: Activity, current: false },
     { name: "الملف الشخصي", href: "/employee/profile", icon: User, current: false },
-  ]
+  ];
+
+  if (status === "loading") {
+    return <div className="p-6 text-center">جاري تحميل البيانات...</div>;
+  }
+
+  if (!session) {
+    router.push("/api/auth/signin");
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
       {/* Mobile sidebar */}
-      <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
+      <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? "block" : "hidden"}`}>
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-75"
+          onClick={() => setSidebarOpen(false)}
+        />
         <div className="fixed inset-y-0 right-0 flex w-64 flex-col bg-white shadow-xl">
           <div className="flex h-16 items-center justify-between px-6 border-b">
             <div className="flex items-center space-x-2 space-x-reverse">
@@ -70,8 +89,8 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
                 href={item.href}
                 className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
                   item.current
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? "bg-blue-100 text-blue-700"
+                    : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
                 <item.icon className="ml-3 h-5 w-5" />
@@ -98,8 +117,8 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
                 href={item.href}
                 className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md ${
                   item.current
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? "bg-blue-100 text-blue-700"
+                    : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
                 <item.icon className="ml-3 h-5 w-5" />
@@ -127,31 +146,37 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
             <div className="flex flex-1" />
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               <div className="text-sm text-gray-600">
-                <span className="font-medium">شركة التقنية المتقدمة</span>
-                <span className="block text-xs">COMP001</span>
+                <span className="font-medium">{session?.user?.companyId || "شركة التقنية المتقدمة"}</span>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder.svg?height=32&width=32" alt="Employee" />
-                      <AvatarFallback>أح</AvatarFallback>
+                      <AvatarImage src={session?.user?.image || "/placeholder.svg"} alt={session?.user?.name || "Employee"} />
+                      <AvatarFallback>
+                        {session?.user?.name?.slice(0, 2) || "مو"}
+                      </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">أحمد حسن</p>
+                      <p className="text-sm font-medium leading-none">
+                        {session?.user?.name || "الموظف"}
+                      </p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        ahmed@company.com
+                        {session?.user?.email}
                       </p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-600 cursor-pointer">
+                      <DropdownMenuItem
+                        onSelect={(e) => e.preventDefault()}
+                        className="text-red-600 focus:text-red-600 cursor-pointer"
+                      >
                         <LogOut className="ml-2 h-4 w-4" />
                         <span>تسجيل الخروج</span>
                       </DropdownMenuItem>
@@ -165,7 +190,10 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
                       </AlertDialogHeader>
                       <AlertDialogFooter className="gap-2">
                         <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleLogout} className="bg-red-600 hover:bg-red-700">
+                        <AlertDialogAction
+                          onClick={handleLogout}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
                           تسجيل الخروج
                         </AlertDialogAction>
                       </AlertDialogFooter>
@@ -179,11 +207,9 @@ export default function EmployeeLayout({ children }: EmployeeLayoutProps) {
 
         {/* Page content */}
         <main className="py-8">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {children}
-          </div>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
     </div>
-  )
+  );
 }

@@ -19,10 +19,15 @@ const UserSchema = new Schema(
         password: {
             type: String,
             required: true,
-           
+
         },
-    },{timestamps:true}
-    
+        companyId: {
+            type: Schema.Types.ObjectId,
+            ref: "Company",
+            required: true,
+        },
+    }, { timestamps: true }
+
 
 )
 export default mongoose.models.User || mongoose.model("User", UserSchema);
