@@ -39,12 +39,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             );
 
             if (isPasswordCorrect) {
-               return {
-          id: user._id.toString(), // 👈 store it as "id"
-          name: user.name,
-          email: user.email,
-          image: user.image || null,
-        };
+               return user;
             } else {
               throw new Error("Wrong Credentials!");
             }

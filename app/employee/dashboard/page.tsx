@@ -14,36 +14,44 @@ export default function EmployeeDashboard() {
   const [isWorking, setIsWorking] = useState(false);
   const [workStartTime, setWorkStartTime] = useState<Date | null>(null);
 
-  const session = useSession();
 
-  // Fetch employee & tasks only when session is ready
+  const session=useSession()
   useEffect(() => {
-    if (session.status === "loading") return; // still loading session
-    if (!session?.data?.user?.id) return; // no user id yet
+  if (session.status === "loading") return;
+  if (!session?.data?.user?.email || !session?.data?.user?.name) return;
 
-    const userId = session.data?.user?.id;
-    console.log(userId)
+  // Step 1: Send email & name to the backend
+  fetch("/api/auth/user/by-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: session.data.user.email,
+      name: session.data.user.name,
+    }),
+  })
+    .then(res => res.json())
+    .then(userData => {
+      if (!userData?._id) {
+        console.error("User not found in DB");
+        return;
+      }
 
-    // Fetch employee data
-    fetch(`/api/employee/${userId}`)
-      .then(res => res.json())
-      .then(data => setEmployee(data))
-      .catch(err => console.error("Error fetching employee:", err));
+      setEmployee(userData);
 
-    // Fetch tasks data
-    fetch(`/api/employee/${userId}/tasks`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setTasks(data);
-        } else if (Array.isArray(data.tasks)) {
-          setTasks(data.tasks);
-        } else {
-          setTasks([]);
-        }
-      })
-      .catch(err => console.error("Error fetching tasks:", err));
-  }, [session, session.status]);
+
+
+      // Step 3: Fetch tasks
+      fetch(`/api/employee/${userData._id}/tasks`)
+        .then(res => res.json())
+        .then(data => {
+          setTasks(data)
+        })
+        .catch(err => console.error("Error fetching tasks:", err));
+    })
+    .catch(err => console.error("Error fetching user:", err));
+}, [session.status]);
+console.log(employee)
+
 
   const handleStartWork = () => {
     setIsWorking(true);
@@ -85,7 +93,7 @@ export default function EmployeeDashboard() {
     }
   };
 
-  if (status === "loading") {
+  if (session.status === "loading") {
     return <p className="text-center mt-10">جارٍ التحميل...</p>;
   }
 
