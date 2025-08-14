@@ -15,7 +15,7 @@ export default function EmployeeDashboard() {
   const [workStartTime, setWorkStartTime] = useState<Date | null>(null);
 
   const session = useSession();
-  console.log(session)
+  console.log(session);
 
   useEffect(() => {
     if (session.status === "loading") return;
@@ -30,8 +30,8 @@ export default function EmployeeDashboard() {
         name: session.data.user.name,
       }),
     })
-      .then(res => res.json())
-      .then(userData => {
+      .then((res) => res.json())
+      .then((userData) => {
         if (!userData?._id) {
           console.error("المستخدم غير موجود في قاعدة البيانات");
           return;
@@ -41,17 +41,17 @@ export default function EmployeeDashboard() {
 
         // جلب المهام
         fetch(`/api/employee/${userData._id}/tasks`)
-          .then(res => res.json())
-          .then(data => {
+          .then((res) => res.json())
+          .then((data) => {
             setTasks(data);
           })
-          .catch(err => console.error("خطأ أثناء جلب المهام:", err));
+          .catch((err) => console.error("خطأ أثناء جلب المهام:", err));
       })
-      .catch(err => console.error("خطأ أثناء جلب المستخدم:", err));
+      .catch((err) => console.error("خطأ أثناء جلب المستخدم:", err));
   }, [session.status]);
 
   const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.status === "done").length;
+  const completedTasks = tasks.filter((t) => t.status === "done").length;
 
   const handleStartWork = () => {
     if (!window.confirm("هل أنت متأكد أنك تريد بدء العمل؟")) return;
@@ -69,20 +69,23 @@ export default function EmployeeDashboard() {
     const messages: Record<string, string> = {
       treated: "هل تريد بدء العمل على هذه المهمة؟",
       done: "هل أنت متأكد أنك أنجزت هذه المهمة؟",
-      refused: "هل أنت متأكد أنك تريد رفض هذه المهمة؟"
+      refused: "هل أنت متأكد أنك تريد رفض هذه المهمة؟",
     };
 
     if (!window.confirm(messages[newStatus] || "هل أنت متأكد؟")) return;
 
     try {
       await fetch(`/api/tasks/${taskId}`, {
-  method: "PUT",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ status: newStatus, refuseReason: "..." }) // if needed
-});
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: newStatus,
+          refuseReason: newStatus === "refused" ? "..." : undefined,
+        }),
+      });
 
-      setTasks(prev =>
-        prev.map(t => (t._id === taskId ? { ...t, status: newStatus } : t))
+      setTasks((prev) =>
+        prev.map((t) => (t._id === taskId ? { ...t, status: newStatus } : t))
       );
     } catch (error) {
       console.error("خطأ أثناء تحديث المهمة:", error);
@@ -114,6 +117,36 @@ export default function EmployeeDashboard() {
         return "bg-yellow-100 text-yellow-800";
       case "refused":
         return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case "urgent":
+        return "عاجلة";
+      case "high":
+        return "مرتفعة";
+      case "medium":
+        return "متوسطة";
+      case "low":
+        return "منخفضة";
+      default:
+        return "غير محددة";
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "urgent":
+        return "bg-red-100 text-red-800";
+      case "high":
+        return "bg-orange-100 text-orange-800";
+      case "medium":
+        return "bg-blue-100 text-blue-800";
+      case "low":
+        return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -174,7 +207,10 @@ export default function EmployeeDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{completedTasks}</div>
               <p className="text-xs">
-                {totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}% إنجاز
+                {totalTasks > 0
+                  ? Math.round((completedTasks / totalTasks) * 100)
+                  : 0}
+                % إنجاز
               </p>
             </CardContent>
           </Card>
@@ -185,7 +221,11 @@ export default function EmployeeDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {tasks.filter(t => t.status === "assigned" || t.status === "treated").length}
+                {
+                  tasks.filter(
+                    (t) => t.status === "assigned" || t.status === "treated"
+                  ).length
+                }
               </div>
             </CardContent>
           </Card>
@@ -206,7 +246,7 @@ export default function EmployeeDashboard() {
             <CardTitle>مهامي</CardTitle>
           </CardHeader>
           <CardContent>
-            {tasks.map(task => (
+            {tasks.map((task) => (
               <Card
                 key={task._id}
                 className="border-r-4 border-r-blue-500 mb-4"
@@ -221,15 +261,22 @@ export default function EmployeeDashboard() {
                         {task.dueDate?.split("T")[0]}
                       </div>
                     </div>
-                    <Badge className={getStatusColor(task.status)}>
-                      {getStatusLabel(task.status)}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className={getStatusColor(task.status)}>
+                        {getStatusLabel(task.status)}
+                      </Badge>
+                      <Badge className={getPriorityColor(task.priority)}>
+                        {getPriorityLabel(task.priority)}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   {task.status === "assigned" && (
                     <Button
-                      onClick={() => handleTaskStatusChange(task._id, "treated")}
+                      onClick={() =>
+                        handleTaskStatusChange(task._id, "treated")
+                      }
                     >
                       بدء العمل
                     </Button>
@@ -237,13 +284,17 @@ export default function EmployeeDashboard() {
                   {task.status === "treated" && (
                     <>
                       <Button
-                        onClick={() => handleTaskStatusChange(task._id, "done")}
+                        onClick={() =>
+                          handleTaskStatusChange(task._id, "done")
+                        }
                       >
                         تم الإنجاز
                       </Button>
                       <Button
                         variant="destructive"
-                        onClick={() => handleTaskStatusChange(task._id, "refused")}
+                        onClick={() =>
+                          handleTaskStatusChange(task._id, "refused")
+                        }
                       >
                         رفض
                       </Button>
