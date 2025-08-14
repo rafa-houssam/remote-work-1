@@ -14,67 +14,93 @@ export default function EmployeeDashboard() {
   const [isWorking, setIsWorking] = useState(false);
   const [workStartTime, setWorkStartTime] = useState<Date | null>(null);
 
+  const session = useSession();
+  console.log(session)
 
-  const session=useSession()
   useEffect(() => {
-  if (session.status === "loading") return;
-  if (!session?.data?.user?.email || !session?.data?.user?.name) return;
+    if (session.status === "loading") return;
+    if (!session?.data?.user?.email || !session?.data?.user?.name) return;
 
-  // Step 1: Send email & name to the backend
-  fetch("/api/auth/user/by-session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: session.data.user.email,
-      name: session.data.user.name,
-    }),
-  })
-    .then(res => res.json())
-    .then(userData => {
-      if (!userData?._id) {
-        console.error("User not found in DB");
-        return;
-      }
-
-      setEmployee(userData);
-
-
-
-      // Step 3: Fetch tasks
-      fetch(`/api/employee/${userData._id}/tasks`)
-        .then(res => res.json())
-        .then(data => {
-          setTasks(data)
-        })
-        .catch(err => console.error("Error fetching tasks:", err));
+    // جلب بيانات الموظف
+    fetch("/api/auth/user/by-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: session.data.user.email,
+        name: session.data.user.name,
+      }),
     })
-    .catch(err => console.error("Error fetching user:", err));
-}, [session.status]);
-console.log(employee)
+      .then(res => res.json())
+      .then(userData => {
+        if (!userData?._id) {
+          console.error("المستخدم غير موجود في قاعدة البيانات");
+          return;
+        }
 
+        setEmployee(userData);
+
+        // جلب المهام
+        fetch(`/api/employee/${userData._id}/tasks`)
+          .then(res => res.json())
+          .then(data => {
+            setTasks(data);
+          })
+          .catch(err => console.error("خطأ أثناء جلب المهام:", err));
+      })
+      .catch(err => console.error("خطأ أثناء جلب المستخدم:", err));
+  }, [session.status]);
+
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.status === "done").length;
 
   const handleStartWork = () => {
+    if (!window.confirm("هل أنت متأكد أنك تريد بدء العمل؟")) return;
     setIsWorking(true);
     setWorkStartTime(new Date());
   };
 
   const handleStopWork = () => {
+    if (!window.confirm("هل أنت متأكد أنك تريد إيقاف العمل؟")) return;
     setIsWorking(false);
     setWorkStartTime(null);
   };
 
   const handleTaskStatusChange = async (taskId: string, newStatus: string) => {
+    const messages: Record<string, string> = {
+      treated: "هل تريد بدء العمل على هذه المهمة؟",
+      done: "هل أنت متأكد أنك أنجزت هذه المهمة؟",
+      refused: "هل أنت متأكد أنك تريد رفض هذه المهمة؟"
+    };
+
+    if (!window.confirm(messages[newStatus] || "هل أنت متأكد؟")) return;
+
     try {
       await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus })
-      });
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ status: newStatus, refuseReason: "..." }) // if needed
+});
+
       setTasks(prev =>
         prev.map(t => (t._id === taskId ? { ...t, status: newStatus } : t))
       );
     } catch (error) {
-      console.error("Error updating task:", error);
+      console.error("خطأ أثناء تحديث المهمة:", error);
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "done":
+        return "منجزة";
+      case "treated":
+        return "قيد التنفيذ";
+      case "assigned":
+        return "مُعيّنة";
+      case "refused":
+        return "مرفوضة";
+      default:
+        return "غير معروف";
     }
   };
 
@@ -100,7 +126,7 @@ console.log(employee)
   return (
     <EmployeeLayout>
       <div className="space-y-6" dir="rtl">
-        {/* Header */}
+        {/* رأس الصفحة */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
@@ -129,7 +155,7 @@ console.log(employee)
           </div>
         </div>
 
-        {/* Stats */}
+        {/* الإحصائيات */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
             <CardHeader>
@@ -137,7 +163,7 @@ console.log(employee)
               <FileText className="h-4 w-4" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{employee?.totalTasks}</div>
+              <div className="text-2xl font-bold">{totalTasks}</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
@@ -146,12 +172,9 @@ console.log(employee)
               <CheckCircle className="h-4 w-4" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{employee?.completedTasks}</div>
+              <div className="text-2xl font-bold">{completedTasks}</div>
               <p className="text-xs">
-                {Math.round(
-                  (employee?.completedTasks / employee?.totalTasks) * 100
-                )}
-                % إنجاز
+                {totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}% إنجاز
               </p>
             </CardContent>
           </Card>
@@ -162,11 +185,7 @@ console.log(employee)
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {
-                  tasks.filter(
-                    t => t.status === "assigned" || t.status === "treated"
-                  ).length
-                }
+                {tasks.filter(t => t.status === "assigned" || t.status === "treated").length}
               </div>
             </CardContent>
           </Card>
@@ -181,7 +200,7 @@ console.log(employee)
           </Card>
         </div>
 
-        {/* Task list */}
+        {/* قائمة المهام */}
         <Card>
           <CardHeader>
             <CardTitle>مهامي</CardTitle>
@@ -203,16 +222,14 @@ console.log(employee)
                       </div>
                     </div>
                     <Badge className={getStatusColor(task.status)}>
-                      {task.status}
+                      {getStatusLabel(task.status)}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
                   {task.status === "assigned" && (
                     <Button
-                      onClick={() =>
-                        handleTaskStatusChange(task._id, "treated")
-                      }
+                      onClick={() => handleTaskStatusChange(task._id, "treated")}
                     >
                       بدء العمل
                     </Button>
@@ -220,17 +237,13 @@ console.log(employee)
                   {task.status === "treated" && (
                     <>
                       <Button
-                        onClick={() =>
-                          handleTaskStatusChange(task._id, "done")
-                        }
+                        onClick={() => handleTaskStatusChange(task._id, "done")}
                       >
                         تم الإنجاز
                       </Button>
                       <Button
                         variant="destructive"
-                        onClick={() =>
-                          handleTaskStatusChange(task._id, "refused")
-                        }
+                        onClick={() => handleTaskStatusChange(task._id, "refused")}
                       >
                         رفض
                       </Button>

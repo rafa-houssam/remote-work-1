@@ -1,75 +1,114 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { User, Mail, Phone, Calendar, MapPin, Edit, Save, X } from 'lucide-react'
-import EmployeeLayout from "@/components/employee-layout"
-
-const mockEmployee = {
-  id: 1,
-  name: "أحمد حسن",
-  email: "ahmed@company.com",
-  phone: "+966 50 123 4567",
-  role: "مطور واجهات أمامية",
-  department: "التطوير",
-  joinDate: "2023-06-15",
-  location: "الرياض، السعودية",
-  bio: "مطور واجهات أمامية متخصص في React و TypeScript مع خبرة 5 سنوات في تطوير تطبيقات الويب الحديثة.",
-  skills: ["React", "TypeScript", "Next.js", "Tailwind CSS", "Node.js"],
-  totalTasks: 25,
-  completedTasks: 18,
-  avatar: "/placeholder.svg?height=120&width=120"
-}
-
-const achievements = [
-  {
-    title: "أفضل موظف الشهر",
-    description: "ديسمبر 2023",
-    icon: "🏆"
-  },
-  {
-    title: "إنجاز 100 مهمة",
-    description: "معلم مهم في الإنتاجية",
-    icon: "🎯"
-  },
-  {
-    title: "عضو الفريق المثالي",
-    description: "تعاون ممتاز مع الزملاء",
-    icon: "🤝"
-  }
-]
+import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User, Mail, Phone, Calendar, MapPin, Edit, Save, X } from "lucide-react";
+import EmployeeLayout from "@/components/employee-layout";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
-  const [isEditing, setIsEditing] = useState(false)
+  const { data: session, status } = useSession();
+  const [isEditing, setIsEditing] = useState(false);
+  const [employee, setEmployee] = useState<any>(null);
+  const [stats, setStats] = useState({ totalTasks: 0, completedTasks: 0 });
   const [formData, setFormData] = useState({
-    name: mockEmployee.name,
-    email: mockEmployee.email,
-    phone: mockEmployee.phone,
-    location: mockEmployee.location,
-    bio: mockEmployee.bio
-  })
+    phoneNumber: "",
+    geoPosition: "",
+    bio: "",
+  });
 
-  const handleSave = () => {
-    console.log("Saving profile:", formData)
-    setIsEditing(false)
-  }
+  // prevent re-fetch overwriting edited values
+  const fetchedOnce = useRef(false);
+
+  const fetchUserAndStats = async () => {
+    try {
+      // Get user by session
+      const res = await fetch("/api/auth/user/by-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: session.user.email,
+          name: session.user.name,
+        }),
+      });
+
+      const userData = await res.json();
+
+      if (!userData?._id) {
+        console.error("المستخدم غير موجود في قاعدة البيانات");
+        return;
+      }
+
+      setEmployee(userData);
+
+      // set form data only on first load
+      if (!fetchedOnce.current) {
+        setFormData({
+          phoneNumber: userData.phoneNumber || "",
+          geoPosition: userData.geoPosition || "",
+          bio: userData.bio || "",
+        });
+        fetchedOnce.current = true;
+      }
+
+      // Fetch tasks for stats
+      const tasksRes = await fetch(`/api/employee/${userData._id}/tasks`);
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        const total = tasksData.length;
+        const completed = tasksData.filter((t: any) => t.status === "done").length;
+        setStats({
+          totalTasks: total,
+          completedTasks: completed,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    if (status === "loading") return;
+    if (!session?.user?.email || !session?.user?.name) return;
+    fetchUserAndStats();
+  }, [session, status]);
+
+  const handleSave = async () => {
+    const res = await fetch(`/api/employee/${employee._id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+
+    if (!res.ok) {
+      toast.error("حدث خطأ أثناء تحديث الملف الشخصي ❌");
+      return;
+    }
+
+    toast.success("تم تحديث الملف الشخصي بنجاح ✅");
+
+    await fetchUserAndStats();
+    setIsEditing(false);
+  };
 
   const handleCancel = () => {
+    if (!employee) return;
     setFormData({
-      name: mockEmployee.name,
-      email: mockEmployee.email,
-      phone: mockEmployee.phone,
-      location: mockEmployee.location,
-      bio: mockEmployee.bio
-    })
-    setIsEditing(false)
-  }
+      phoneNumber: employee.phoneNumber || "",
+      geoPosition: employee.geoPosition || "",
+      bio: employee.bio || "",
+    });
+    setIsEditing(false);
+  };
+
+  if (status === "loading") return <p>جارٍ التحميل...</p>;
+  if (!employee) return <p>لم يتم العثور على بيانات الموظف</p>;
 
   return (
     <EmployeeLayout>
@@ -110,137 +149,111 @@ export default function ProfilePage() {
               <CardContent className="space-y-6">
                 <div className="flex items-center space-x-6 space-x-reverse">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src={mockEmployee.avatar || "/placeholder.svg"} alt={mockEmployee.name} />
+                    <AvatarImage src={employee.avatar || ""} alt={employee.name} />
                     <AvatarFallback className="text-2xl">
-                      {mockEmployee.name.split(' ').map(n => n[0]).join('')}
+                      {employee.name?.split(" ").map((n) => n[0]).join("")}
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-bold">{mockEmployee.name}</h2>
-                    <p className="text-gray-600">{mockEmployee.role}</p>
-                    <Badge variant="secondary">{mockEmployee.department}</Badge>
+                    <h2 className="text-2xl font-bold">{employee.name}</h2>
+                    <p className="text-gray-600">{employee.role}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Name (read-only) */}
                   <div className="space-y-2">
-                    <Label htmlFor="name">الاسم الكامل</Label>
-                    {isEditing ? (
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        className="text-right"
-                      />
-                    ) : (
-                      <div className="flex items-center space-x-2 space-x-reverse p-2 bg-gray-50 rounded">
-                        <User className="h-4 w-4 text-gray-500" />
-                        <span>{mockEmployee.name}</span>
-                      </div>
-                    )}
+                    <Label>الاسم الكامل</Label>
+                    <div className="flex items-center space-x-2 space-x-reverse p-2 bg-gray-50 rounded">
+                      <User className="h-4 w-4 text-gray-500" />
+                      <span>{employee.name}</span>
+                    </div>
                   </div>
 
+                  {/* Email (read-only) */}
                   <div className="space-y-2">
-                    <Label htmlFor="email">البريد الإلكتروني</Label>
-                    {isEditing ? (
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                        className="text-right"
-                      />
-                    ) : (
-                      <div className="flex items-center space-x-2 space-x-reverse p-2 bg-gray-50 rounded">
-                        <Mail className="h-4 w-4 text-gray-500" />
-                        <span>{mockEmployee.email}</span>
-                      </div>
-                    )}
+                    <Label>البريد الإلكتروني</Label>
+                    <div className="flex items-center space-x-2 space-x-reverse p-2 bg-gray-50 rounded">
+                      <Mail className="h-4 w-4 text-gray-500" />
+                      <span>{employee.email}</span>
+                    </div>
                   </div>
 
+                  {/* Phone */}
                   <div className="space-y-2">
                     <Label htmlFor="phone">رقم الهاتف</Label>
                     {isEditing ? (
                       <Input
                         id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                        value={formData.phoneNumber}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, phoneNumber: e.target.value }))
+                        }
                         className="text-right"
                       />
                     ) : (
                       <div className="flex items-center space-x-2 space-x-reverse p-2 bg-gray-50 rounded">
                         <Phone className="h-4 w-4 text-gray-500" />
-                        <span>{mockEmployee.phone}</span>
+                        <span>{employee.phoneNumber}</span>
                       </div>
                     )}
                   </div>
 
+                  {/* Location */}
                   <div className="space-y-2">
                     <Label htmlFor="location">الموقع</Label>
                     {isEditing ? (
                       <Input
                         id="location"
-                        value={formData.location}
-                        onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                        value={formData.geoPosition}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, geoPosition: e.target.value }))
+                        }
                         className="text-right"
                       />
                     ) : (
                       <div className="flex items-center space-x-2 space-x-reverse p-2 bg-gray-50 rounded">
                         <MapPin className="h-4 w-4 text-gray-500" />
-                        <span>{mockEmployee.location}</span>
+                        <span>{employee.geoPosition}</span>
                       </div>
                     )}
                   </div>
 
+                  {/* Join Date */}
                   <div className="space-y-2">
                     <Label>تاريخ الانضمام</Label>
                     <div className="flex items-center space-x-2 space-x-reverse p-2 bg-gray-50 rounded">
                       <Calendar className="h-4 w-4 text-gray-500" />
-                      <span>{new Date(mockEmployee.joinDate).toLocaleDateString('ar-SA')}</span>
+                      <span>{new Date(employee.dateOfJoining).toLocaleDateString("ar-SA")}</span>
                     </div>
                   </div>
 
+                  {/* Role */}
                   <div className="space-y-2">
                     <Label>المسمى الوظيفي</Label>
                     <div className="flex items-center space-x-2 space-x-reverse p-2 bg-gray-50 rounded">
                       <User className="h-4 w-4 text-gray-500" />
-                      <span>{mockEmployee.role}</span>
+                      <span>{employee.role}</span>
                     </div>
                   </div>
                 </div>
 
+                {/* Bio */}
                 <div className="space-y-2">
                   <Label htmlFor="bio">نبذة شخصية</Label>
                   {isEditing ? (
                     <Textarea
                       id="bio"
                       value={formData.bio}
-                      onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, bio: e.target.value }))}
                       className="text-right min-h-[100px]"
                       placeholder="اكتب نبذة مختصرة عنك..."
                     />
                   ) : (
                     <div className="p-3 bg-gray-50 rounded text-gray-700 leading-relaxed">
-                      {mockEmployee.bio}
+                      {employee.bio}
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Skills */}
-            <Card>
-              <CardHeader>
-                <CardTitle>المهارات التقنية</CardTitle>
-                <CardDescription>المهارات والتقنيات التي تتقنها</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {mockEmployee.skills.map((skill, index) => (
-                    <Badge key={index} variant="secondary" className="px-3 py-1">
-                      {skill}
-                    </Badge>
-                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -248,50 +261,32 @@ export default function ProfilePage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Stats */}
             <Card>
               <CardHeader>
                 <CardTitle>إحصائيات الأداء</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{mockEmployee.totalTasks}</div>
+                <div className="text-center p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{stats.totalTasks}</div>
                   <p className="text-sm text-blue-800">إجمالي المهام</p>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{mockEmployee.completedTasks}</div>
+                <div className="text-center p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{stats.completedTasks}</div>
                   <p className="text-sm text-green-800">مهام مكتملة</p>
                 </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <div className="text-center p-4 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">
-                    {Math.round((mockEmployee.completedTasks / mockEmployee.totalTasks) * 100)}%
+                    {stats.totalTasks > 0
+                      ? Math.round((stats.completedTasks / stats.totalTasks) * 100)
+                      : 0}%
                   </div>
                   <p className="text-sm text-purple-800">معدل الإنجاز</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Achievements */}
-            <Card>
-              <CardHeader>
-                <CardTitle>الإنجازات</CardTitle>
-                <CardDescription>إنجازاتك وجوائزك</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {achievements.map((achievement, index) => (
-                  <div key={index} className="flex items-center space-x-3 space-x-reverse p-3 bg-gray-50 rounded-lg">
-                    <div className="text-2xl">{achievement.icon}</div>
-                    <div>
-                      <p className="font-medium">{achievement.title}</p>
-                      <p className="text-sm text-gray-600">{achievement.description}</p>
-                    </div>
-                  </div>
-                ))}
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
     </EmployeeLayout>
-  )
+  );
 }

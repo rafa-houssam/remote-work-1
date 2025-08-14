@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import connect from "@/utils/db";
 import Task from "@/models/Tasks";
+import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 
-type Params={
-  userId:string
-}
+
 
 export const GET = async (request: NextRequest,
-  { params }: { params: { id: string } }) => {
+  { params }: { params: { userId: string } }) => {
   try {
     await connect();
     const {userId}=params
-    const tasks = await Task.find({ assignedTo: userId })
-      .populate("assignedBy", "name email")
-      .sort({ createdAt: -1 });
+     const objectId = new mongoose.Types.ObjectId(userId);
+     console.log(objectId)
+    const tasks = await Task.find({assignedTo:objectId})
+
 
     console.log(tasks)
     return NextResponse.json(tasks, { status: 200 });

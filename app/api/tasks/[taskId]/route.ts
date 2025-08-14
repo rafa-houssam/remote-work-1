@@ -2,15 +2,26 @@ import { NextResponse } from "next/server";
 import connect from "@/utils/db";
 import Task from "@/models/Tasks";
 
-export const PATCH = async (req: Request, { params }: { params: { taskId: string } }) => {
+export const PUT = async (req: Request, { params }: { params: { taskId: string } }) => {
   try {
     const { status, refuseReason } = await req.json();
     await connect();
 
+    let updateData: any = { status };
+
+    if (status === "refused") {
+      updateData.refuseReason = refuseReason || "";
+    } else {
+      // Remove refuseReason if status is not refused
+      updateData.$unset = { refuseReason: "" };
+    }
+
     const updatedTask = await Task.findByIdAndUpdate(
       params.taskId,
-      { status, ...(status === "refused" ? { refuseReason } : {}) },
-      { new: true }
+      status === "refused"
+        ? { $set: { status, refuseReason: refuseReason || "" } }
+        : { $set: { status }, $unset: { refuseReason: "" } },
+      { new: true, runValidators: true }
     );
 
     if (!updatedTask) {
