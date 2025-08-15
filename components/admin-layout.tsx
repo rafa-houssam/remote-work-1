@@ -44,10 +44,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const navigation = [
     { name: "لوحة التحكم", href: "/admin/dashboard", icon: Building2 },
-    { name: "الموظفون", href: "/admin/employees", icon: Users },
-    { name: "المهام", href: "/admin/tasks", icon: CheckSquare },
-    { name: "النشاط", href: "/admin/activity", icon: Activity },
-    { name: "التقارير", href: "/admin/reports", icon: BarChart3 },
     { name: "الإعدادات", href: "/admin/settings", icon: Settings },
   ]
 

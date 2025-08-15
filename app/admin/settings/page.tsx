@@ -95,18 +95,7 @@ export default function SettingsPage() {
               <Users className="h-4 w-4" />
               <span>المدير</span>
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center space-x-2 space-x-reverse">
-              <Bell className="h-4 w-4" />
-              <span>الإشعارات</span>
-            </TabsTrigger>
-            <TabsTrigger value="system" className="flex items-center space-x-2 space-x-reverse">
-              <Settings className="h-4 w-4" />
-              <span>النظام</span>
-            </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center space-x-2 space-x-reverse">
-              <Shield className="h-4 w-4" />
-              <span>الأمان</span>
-            </TabsTrigger>
+        
           </TabsList>
 
           {/* Company Settings */}

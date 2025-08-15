@@ -1,32 +1,39 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Plus } from 'lucide-react'
-import { format } from "date-fns"
-import { ar } from "date-fns/locale"
+import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon, Plus } from "lucide-react";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
 
 interface Employee {
-  id: number
-  name: string
-  email: string
-  role: string
+  _id: string;
+  name: string;
+  role?: string;
 }
 
 interface CreateTaskDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  employees: Employee[]
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  employees: Employee[]; // fetched from backend
+  companyId: string;
+  currentUserId: string; // the logged-in user ID (assignedBy)
 }
 
-export default function CreateTaskDialog({ open, onOpenChange, employees }: CreateTaskDialogProps) {
+export default function CreateTaskDialog({
+  open,
+  onOpenChange,
+  employees,
+  companyId,
+  currentUserId
+}: CreateTaskDialogProps) {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -34,46 +41,71 @@ export default function CreateTaskDialog({ open, onOpenChange, employees }: Crea
     priority: "",
     dueDate: undefined as Date | undefined,
     category: ""
-  })
-  const [isLoading, setIsLoading] = useState(false)
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
-    setIsLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    console.log("Creating task:", formData)
-    
-    // Reset form
+  if (!isFormValid) return;
+  setIsLoading(true);
+
+  try {
+    const res = await fetch("/api/admin/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyId,
+        assignedBy: currentUserId,
+        assignedTo: formData.assignedTo, // string, will be cast to ObjectId
+        title: formData.title,
+        description: formData.description,
+        priority: formData.priority,
+        dueDate: formData.dueDate, // still a Date object
+      }),
+    });
+
+    if (!res.ok) throw new Error("فشل إنشاء المهمة");
+
+    await res.json();
+    alert("تم إنشاء المهمة بنجاح ✅");
+
+    // reset form
     setFormData({
       title: "",
       description: "",
       assignedTo: "",
       priority: "",
       dueDate: undefined,
-      category: ""
-    })
-    
-    setIsLoading(false)
-    onOpenChange(false)
-  }
+      category: "",
+    });
 
-  const isFormValid = formData.title && formData.description && formData.assignedTo && 
-                     formData.priority && formData.dueDate
+    onOpenChange(false);
+  } catch (err: any) {
+    alert(err.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
+  const isFormValid =
+    formData.title &&
+    formData.description &&
+    formData.assignedTo &&
+    formData.priority &&
+    formData.dueDate;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">إضافة مهمة جديدة</DialogTitle>
-          <DialogDescription>
-            قم بإنشاء مهمة جديدة وتعيينها لأحد أعضاء الفريق
-          </DialogDescription>
+          <DialogDescription>قم بإنشاء مهمة جديدة وتعيينها لأحد أعضاء الفريق</DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-6 py-4">
+          {/* title + category */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="title">عنوان المهمة *</Label>
               <Input
                 id="title"
@@ -83,10 +115,13 @@ export default function CreateTaskDialog({ open, onOpenChange, employees }: Crea
                 className="text-right"
               />
             </div>
-            
-            <div className="space-y-2">
+
+            <div>
               <Label htmlFor="category">الفئة</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="اختر فئة المهمة" />
                 </SelectTrigger>
@@ -102,7 +137,8 @@ export default function CreateTaskDialog({ open, onOpenChange, employees }: Crea
             </div>
           </div>
 
-          <div className="space-y-2">
+          {/* description */}
+          <div>
             <Label htmlFor="description">وصف المهمة *</Label>
             <Textarea
               id="description"
@@ -113,42 +149,68 @@ export default function CreateTaskDialog({ open, onOpenChange, employees }: Crea
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="assignedTo">تعيين إلى *</Label>
-              <Select value={formData.assignedTo} onValueChange={(value) => setFormData(prev => ({ ...prev, assignedTo: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر الموظف" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.name}>
-                      <div className="flex items-center space-x-2 space-x-reverse">
-                        <span>{employee.name}</span>
-                        <span className="text-sm text-gray-500">({employee.role})</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* assignedTo + priority */}
+          {/* Employee selection */}
+          You said:
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {/* Employee Selection */}
+  <div>
+  <Label htmlFor="assignedTo">تعيين إلى *</Label>
+  <Select
+    value={formData.assignedTo || ""}
+    onValueChange={(value) =>
+      setFormData((prev) => ({ ...prev, assignedTo: value }))
+    }
+  >
+    <SelectTrigger>
+      <SelectValue placeholder="اختر الموظف" />
+    </SelectTrigger>
+    <SelectContent>
+      {employees && employees.length > 0 ? (
+        employees.map((employee) => (
+          <SelectItem
+            key={employee._id}
+            value={employee._id} // string is fine, mongoose will cast to ObjectId
+          >
+            {employee.role
+              ? `${employee.name} (${employee.role})`
+              : employee.name}
+          </SelectItem>
+        ))
+      ) : (
+        <SelectItem disabled value="">
+          لا يوجد موظفون متاحون
+        </SelectItem>
+      )}
+    </SelectContent>
+  </Select>
+</div>
+  {/* Priority Selection */}
+  <div>
+    <Label htmlFor="priority">الأولوية *</Label>
+    <Select
+      value={formData.priority}
+      onValueChange={(value) =>
+        setFormData((prev) => ({ ...prev, priority: value }))
+      }
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="اختر الأولوية" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="urgent">عاجلة</SelectItem>
+        <SelectItem value="high">عالية</SelectItem>
+        <SelectItem value="medium">متوسطة</SelectItem>
+        <SelectItem value="low">منخفضة</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+</div> 
 
-            <div className="space-y-2">
-              <Label htmlFor="priority">الأولوية *</Label>
-              <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({ ...prev, priority: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر الأولوية" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="عالية">عالية</SelectItem>
-                  <SelectItem value="متوسطة">متوسطة</SelectItem>
-                  <SelectItem value="منخفضة">منخفضة</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
-          <div className="space-y-2">
+
+          {/* due date */}
+          <div>
             <Label>تاريخ الاستحقاق *</Label>
             <Popover>
               <PopoverTrigger asChild>
@@ -176,14 +238,15 @@ export default function CreateTaskDialog({ open, onOpenChange, employees }: Crea
           </div>
         </div>
 
+        {/* actions */}
         <div className="flex justify-end space-x-2 space-x-reverse">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             إلغاء
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
             disabled={!isFormValid || isLoading}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            className="bg-gradient-to-r from-blue-600 to-purple-600"
           >
             {isLoading ? "جاري الإنشاء..." : "إنشاء المهمة"}
             {!isLoading && <Plus className="mr-2 h-4 w-4" />}
@@ -191,5 +254,5 @@ export default function CreateTaskDialog({ open, onOpenChange, employees }: Crea
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
