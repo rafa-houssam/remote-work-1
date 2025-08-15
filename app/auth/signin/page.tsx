@@ -185,15 +185,7 @@ export default function SignInPage() {
                 </p>
               </div>
 
-              <div className="text-center text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                <p className="font-medium mb-2">بيانات تجريبية:</p>
-                <div className="space-y-1 text-xs">
-                  <p>معرف الشركة: DEMO001</p>
-                  <p>مدير: admin@company.com</p>
-                  <p>موظف: employee@company.com</p>
-                  <p>كلمة المرور: 123456</p>
-                </div>
-              </div>
+             
             </CardContent>
           </Card>
         </div>
