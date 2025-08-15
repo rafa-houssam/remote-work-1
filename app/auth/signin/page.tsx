@@ -48,6 +48,14 @@ export default function SignInPage() {
     return <p>جار التحميل...</p>;
   }
 
+  const changeLanguage=(role:string)=>{
+    if (role!="admin"){
+      return "موظف"
+    }else{
+      return role
+    }
+
+  }
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -57,7 +65,7 @@ export default function SignInPage() {
       redirect: false,
       email,
       password,
-      userType,
+      userType:changeLanguage(userType)
     });
 
     if (res?.error) {

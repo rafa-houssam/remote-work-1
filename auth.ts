@@ -22,6 +22,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       label: "Password",
       placeholder: "*****",
     },
+    userType: {
+      type: "text",
+      label: "role",
+      placeholder: "موظف/مدير",
+    },
   },
   authorize: async (credentials) => {
         await connect();
@@ -39,7 +44,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             );
 
             if (isPasswordCorrect) {
-               return user;
+              if(user.role==credentials.userType){
+
+                return user;
+              }else {
+              throw new Error("Wrong Credentials!");
+            }
             } else {
               throw new Error("Wrong Credentials!");
             }
@@ -56,6 +66,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
 
   pages: {
-    signIn: "/auth/login",
+    signIn: "/auth/signin",
   },
 })
